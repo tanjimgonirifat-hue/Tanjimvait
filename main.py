@@ -5,6 +5,7 @@ import random
 import time
 import datetime
 import threading
+import os
 from flask import Flask
 from faker import Faker
 from telebot import types
@@ -28,15 +29,17 @@ user_tasks = {}
 def home():
     return f"🚀 {BOT_NAME} System is Online!"
 
+# গুগল শিটে ডাটা পাঠানোর ফাংশন
 def send_to_sheet(row, sheet_name):
     try:
         requests.post(WEB_APP_URL, json={"row": row, "sheet_name": sheet_name}, timeout=15)
-    except: pass
+    except:
+        pass
 
 def main_menu(user_id):
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
     markup.add('🚀 𝐒𝐭𝐚𝐫𝐭 𝐖𝐨𝐫𝐤', '👤 𝐌𝐲 𝐏𝐫𝐨𝐟𝐢𝐥𝐞')
-    markup.add('👥 𝐌𝐲 𝐑𝐞𝐟𝐞𝐫𝐫𝐚𝐥𝐬', '💸 𝐖𝐢𝐭𝐡𝐝𝐫𝐚𝐰', '📞 𝐒𝐮প্পোর্টর')
+    markup.add('👥 𝐌𝐲 𝐑𝐞𝐟𝐞𝐫𝐫𝐚𝐥𝐬', '💸 𝐖𝐢𝐭𝐡𝐝𝐫𝐚𝐰', '📞 𝐒𝐮𝐩𝐩𝐨𝐫𝐭')
     if user_id == ADMIN_ID:
         markup.add('📢 𝐁𝐫𝐨𝐚𝐝𝐜𝐚𝐬𝐭')
     return markup
@@ -46,7 +49,8 @@ def welcome(message):
     user_id = message.chat.id
     if user_id not in user_db:
         user_db[user_id] = {'balance': 0.0, 'refer_count': 0}
-    bot.send_message(user_id, f"🌟 **Welcome to {BOT_NAME}**", reply_markup=main_menu(user_id), parse_mode="Markdown")
+    bot.send_message(user_id, f"🌟 **Welcome to {BOT_NAME}**\nআপনি এখান থেকে কাজ করে আয় করতে পারেন।", 
+                     reply_markup=main_menu(user_id), parse_mode="Markdown")
 
 @bot.message_handler(func=lambda message: message.text == "🚀 𝐒𝐭𝐚𝐫𝐭 𝐖𝐨𝐫𝐤")
 def task_selection(message):
@@ -101,6 +105,7 @@ def handle_task_input(message):
     chat_id = message.chat.id
     if chat_id not in user_tasks: return
     
+    # ১০ মিনিট টাইম-আউট
     if time.time() - user_tasks[chat_id]['time'] > 600:
         bot.send_message(chat_id, "⏰ **Time Out! Task Closed.**")
         del user_tasks[chat_id]
@@ -116,7 +121,7 @@ def handle_task_input(message):
             data['2fa_key'] = user_input
             markup = types.InlineKeyboardMarkup()
             markup.add(types.InlineKeyboardButton("📤 𝐒𝐮𝐛𝐦𝐢𝐭 𝐑𝐞𝐩𝐨𝐫𝐭", callback_data="final_submit"))
-            bot.send_message(chat_id, f"🔢 **Your OTP:** `{otp}`\n\n✅ রিপোর্ট সাবমিট করুন।", reply_markup=markup, parse_mode="Markdown")
+            bot.send_message(chat_id, f"🔢 **Your OTP:** `{otp}`\n\n✅ চেক করে রিপোর্ট সাবমিট বাটনে ক্লিক করুন।", reply_markup=markup, parse_mode="Markdown")
         except:
             bot.send_message(chat_id, "❌ ভুল কী! আবার সঠিক কী দিন।")
             bot.register_next_step_handler(message, handle_task_input)
@@ -146,6 +151,8 @@ def final_submit(call):
     bot.edit_message_text("✅ **সফলভাবে জমা হয়েছে!**", chat_id, call.message.message_id)
     del user_tasks[chat_id]
 
+# রেন্ডারের জন্য ডাইনামিক পোর্ট
 if __name__ == '__main__':
-    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=8080)).start()
+    port = int(os.environ.get("PORT", 8080))
+    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=port)).start()
     bot.infinity_polling()
